@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parseISO, differenceInYears } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,18 +11,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TermsDialog } from './TermsDialog';
-import { giftCardOptions, consoleOptions, retroConsoleOptions } from '@/config/customer-form-config';
+import { consoleOptions, retroConsoleOptions } from '@/config/customer-form-config';
 import ReactCountryFlag from 'react-country-flag';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
-// helpers
-const year = (v?: string | null) => {
-  if (!v) return null;
-  const d = new Date(v);
-  return Number.isFinite(d.getTime()) ? d.getUTCFullYear() : 'invalid';
-};
+
 
 // Success Page Component
 function SuccessPage({ onReset }: { onReset: () => void }) {
@@ -75,153 +67,26 @@ function SuccessPage({ onReset }: { onReset: () => void }) {
   );
 }
 
-// Barbados timezone for age calculations
-const BARBADOS_TIMEZONE = 'America/Barbados';
+
 
 // Form validation schema
 const formSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(80, 'Name must be less than 80 characters'),
   email: z.string().email('Please enter a valid email address'),
-  dob: z.string().refine((date) => {
-    if (!date) return false;
-    const parsedDate = parseISO(date);
-    const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-    const minDate = new Date('1900-01-01');
-    return parsedDate <= today && parsedDate >= minDate;
-  }, 'Please enter a valid date of birth (cannot be in the future or before 1900)'),
   whatsappCountryCode: z.string().min(1, 'Country code is required'),
   customCountryCode: z.string().optional(),
   whatsappNumber: z.string().min(7, 'WhatsApp number must be at least 7 digits').max(15, 'WhatsApp number must be less than 15 digits').regex(/^[\d\-]+$/, 'WhatsApp number can only contain digits and dashes'),
-  shopCategories: z.array(z.enum(['gift_cards', 'video_games'])).min(1, 'Please select at least one shopping category'),
-  selectedGiftCards: z.array(z.string()).optional(),
-  giftCardUsernames: z.record(
-    z.string().max(40, 'Username must be less than 40 characters').optional()
-  ).optional(),
+  shopCategories: z.array(z.enum(['video_games'])).min(1, 'Please select at least one shopping category'),
   selectedConsoles: z.array(z.string()).optional(),
   selectedRetroConsoles: z.array(z.string()).optional(),
-  guardianFullName: z.string().optional(),
-  guardianDob: z.string().optional(),
   acceptedTerms: z.boolean().refine((val) => val === true, 'You must accept the terms and conditions'),
-}).refine((data) => {
-  // If shopping for gift cards, require at least one selection
-  if (data.shopCategories.includes('gift_cards')) {
-    return data.selectedGiftCards && data.selectedGiftCards.length > 0;
-  }
-  return true;
-}, {
-  message: 'Please select at least one gift card type',
-  path: ['selectedGiftCards'],
-}).refine((data) => {
-  // If shopping for gift cards, validate usernames when provided (now optional)
-  if (data.shopCategories.includes('gift_cards') && data.selectedGiftCards && data.selectedGiftCards.length > 0) {
-    if (!data.giftCardUsernames) return true; // Allow if no usernames provided
-    
-    return data.selectedGiftCards.every(cardId => {
-      const username = data.giftCardUsernames![cardId];
-      
-      // If username is empty/blank, it's allowed (optional)
-      if (!username || username.trim().length === 0) return true;
-      
-      // If username is provided, validate email format for Amazon and Apple gift cards
-      if (cardId === 'amazon' || cardId === 'itunes') {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(username.trim());
-      }
-      
-      return true;
-    });
-  }
-  return true;
-}, {
-  message: 'If you provide usernames for gift cards, Amazon and Apple require valid email addresses. You can leave usernames blank.',
-  path: ['giftCardUsernames'],
-}).refine((data) => {
-  // If shopping for video games, require at least one console
-  if (data.shopCategories.includes('video_games')) {
-    const hasMainConsoles = data.selectedConsoles && data.selectedConsoles.length > 0;
-    const hasRetroConsoles = data.selectedRetroConsoles && data.selectedRetroConsoles.length > 0;
-    return hasMainConsoles || hasRetroConsoles;
-  }
-  return true;
-}, {
-  message: 'Please select at least one gaming system',
-  path: ['selectedConsoles'],
-}).refine((data) => {
-  // If customer is a minor (under 18), require guardian information
-  if (data.dob) {
-    try {
-      const customerDate = parseISO(data.dob);
-      const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-      const age = differenceInYears(today, customerDate);
-      if (age < 18) {
-        return data.guardianFullName && data.guardianFullName.length >= 2 && 
-               data.guardianDob && data.guardianDob.length > 0;
-      }
-    } catch (error) {
-      // Invalid date, ignore
-    }
-  }
-  return true;
-}, {
-  message: 'Guardian information is required for customers under 18 years old',
-  path: ['guardianFullName'],
-}).refine((data) => {
-  // Validate guardian name length if provided
-  if (data.guardianFullName && data.guardianFullName.length > 0) {
-    return data.guardianFullName.length >= 2 && data.guardianFullName.length <= 80;
-  }
-  return true;
-}, {
-  message: 'Guardian name must be between 2 and 80 characters',
-  path: ['guardianFullName'],
-}).refine((data) => {
-  // Validate guardian date of birth if provided
-  if (data.guardianDob && data.guardianDob.length > 0) {
-    try {
-      const guardianDate = parseISO(data.guardianDob);
-      const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-      const minDate = new Date('1900-01-01');
-      return guardianDate <= today && guardianDate >= minDate;
-    } catch (error) {
-      return false;
-    }
-  }
-  return true;
-}, {
-  message: 'Please enter a valid guardian date of birth (cannot be in the future or before 1900)',
-  path: ['guardianDob'],
-}).refine((data) => {
-  // If customer is a minor (under 18), guardian must be at least 18 years old
-  if (data.dob && data.guardianDob) {
-    try {
-      const customerDate = parseISO(data.dob);
-      const guardianDate = parseISO(data.guardianDob);
-      const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-      
-      const customerAge = differenceInYears(today, customerDate);
-      const guardianAge = differenceInYears(today, guardianDate);
-      
-      if (customerAge < 18) {
-        return guardianAge >= 18;
-      }
-    } catch (error) {
-      // Invalid dates, ignore
-    }
-  }
-  return true;
-}, {
-  message: 'Guardian must be at least 18 years old',
-  path: ['guardianDob'],
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 export function CustomerInfoForm() {
-  const [isMinor, setIsMinor] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [hasReadTerms, setHasReadTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const form = useForm<FormData>({
@@ -230,49 +95,18 @@ export function CustomerInfoForm() {
     defaultValues: {
       fullName: '',
       email: '',
-      dob: '',
       whatsappCountryCode: '+1 (246)', // Fixed: Added brackets to match SelectItem value
       customCountryCode: '',
       whatsappNumber: '',
-      shopCategories: [],
-      selectedGiftCards: [],
-      giftCardUsernames: {},
+      shopCategories: ['video_games'], // Auto-check video games
       selectedConsoles: [],
       selectedRetroConsoles: [],
-      guardianFullName: '',
-      guardianDob: '',
       acceptedTerms: false,
     },
   });
 
   const watchShopCategories = form.watch('shopCategories') || [];
-  const watchSelectedGiftCards = form.watch('selectedGiftCards') || [];
-  const watchDob = form.watch('dob');
   const watchCountryCode = form.watch('whatsappCountryCode');
-
-  // Check if customer is a minor when DOB changes
-  useEffect(() => {
-    if (watchDob) {
-      try {
-        const customerDate = parseISO(watchDob);
-        const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-        const age = differenceInYears(today, customerDate);
-        const newIsMinor = age < 18;
-        
-        if (newIsMinor !== isMinor) {
-          setIsMinor(newIsMinor);
-          
-          if (!newIsMinor) {
-            // Clear guardian fields if no longer a minor
-            form.setValue('guardianFullName', '');
-            form.setValue('guardianDob', '');
-          }
-        }
-      } catch (error) {
-        // Invalid date, ignore
-      }
-    }
-  }, [watchDob, isMinor, form]);
 
   // Auto-populate "+" when "Other" is selected for country code
   useEffect(() => {
@@ -288,20 +122,15 @@ export function CustomerInfoForm() {
 
   const resetFormState = () => {
     form.reset();
-    // Explicitly reset the terms acceptance
+    // Explicitly reset the terms acceptance and auto-check video games
     form.setValue('acceptedTerms', false);
-    setIsMinor(false);
+    form.setValue('shopCategories', ['video_games']);
     setError(null);
-    setHasReadTerms(false);
-    setShowTerms(false);
     setIsSubmitting(false);
   };
 
   const resetComponentState = () => {
-    setIsMinor(false);
     setError(null);
-    setHasReadTerms(false);
-    setShowTerms(false);
     setIsSubmitting(false);
   };
 
@@ -309,38 +138,21 @@ export function CustomerInfoForm() {
     setIsSubmitting(true);
     logger.debug('Form submit (redacted)', {
       categories: data.shopCategories,
-      giftCardsCount: data.selectedGiftCards?.length ?? 0,
       consolesCount: data.selectedConsoles?.length ?? 0,
       retroConsolesCount: data.selectedRetroConsoles?.length ?? 0,
-      hasGuardian: Boolean(data.guardianFullName),
     });
     
     try {
-      // Log the specific date values being sent (redacted)
-      logger.debug('Date fields (redacted)', {
-        dobYear: year(data.dob),
-        guardianDobYear: year(data.guardianDob),
-        isMinor,
-      });
-      
       // Single database function call to create player profile
       const { data: newId, error } = await supabase.rpc('create_player_profile', {
         p_full_name: data.fullName,
-        p_date_of_birth: data.dob || null,
         p_whatsapp_country_code: data.whatsappCountryCode,
         p_whatsapp_number: data.whatsappNumber,
         p_email: (data.email ?? '').trim().toLowerCase() || null,
         p_custom_country_code: data.customCountryCode || null,
-        p_guardian_full_name: data.guardianFullName || null,
-        p_guardian_date_of_birth: data.guardianDob || null,
-        p_is_minor: isMinor,
         p_terms_accepted: data.acceptedTerms,
         p_terms_accepted_at: new Date().toISOString(),
         p_shop_categories: data.shopCategories,
-        p_gift_cards: (data.selectedGiftCards || []).map(id => ({
-          id, 
-          username: (data.giftCardUsernames?.[id] || '').trim().toLowerCase() || null
-        })), // Include all selected gift cards, with null usernames for optional ones
         p_consoles: data.selectedConsoles || [],
         p_retro_consoles: data.selectedRetroConsoles || []
       });
@@ -392,53 +204,7 @@ export function CustomerInfoForm() {
     }
   };
 
-  const handleGiftCardChange = (cardId: string, checked: boolean) => {
-    const currentSelected = form.getValues('selectedGiftCards') || [];
-    const currentUsernames = form.getValues('giftCardUsernames') || {};
-    
-    if (checked) {
-      if (currentUsernames[cardId] == null) {
-        form.setValue(`giftCardUsernames.${cardId}` as const, ''); // avoid undefined
-      }
-      form.setValue('selectedGiftCards', [...currentSelected, cardId]);
-    } else {
-      form.setValue('selectedGiftCards', currentSelected.filter(id => id !== cardId));
-      delete currentUsernames[cardId];
-      form.setValue('giftCardUsernames', currentUsernames);
-    }
-  };
-
-  const handleGiftCardUsernameChange = (cardId: string, value: string) => {
-    // Convert to lowercase for email-based gift cards
-    if (cardId === 'amazon' || cardId === 'itunes') {
-      const formattedValue = value.toLowerCase().trim();
-      form.setValue(`giftCardUsernames.${cardId}` as const, formattedValue);
-    } else {
-      form.setValue(`giftCardUsernames.${cardId}` as const, value);
-    }
-  };
-
-  const isEmailValid = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const getGiftCardInputClassName = (cardId: string, value: string) => {
-    const baseClass = "bg-slate-600 border-slate-500 text-white placeholder:text-slate-400 focus:border-cyan-400 focus:ring-cyan-400/20 transition-all duration-200";
-    
-    if (cardId === 'amazon' || cardId === 'itunes') {
-      if (!value) return baseClass;
-      if (isEmailValid(value)) {
-        return "bg-slate-600 border-emerald-500 text-white placeholder:text-slate-400 focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200";
-      } else {
-        return "bg-slate-600 border-red-500 text-white placeholder:text-slate-400 focus:border-red-400 focus:ring-red-400/20 transition-all duration-200";
-      }
-    }
-    
-    return baseClass;
-  };
-
-  const handleShopCategoryChange = (category: 'gift_cards' | 'video_games', checked: boolean) => {
+  const handleShopCategoryChange = (category: 'video_games', checked: boolean) => {
     const currentCategories = form.getValues('shopCategories') || [];
     
     if (checked) {
@@ -448,19 +214,14 @@ export function CustomerInfoForm() {
       form.setValue('shopCategories', newCategories);
       
       // Clear related selections when category is unchecked
-      if (category === 'gift_cards') {
-        form.setValue('selectedGiftCards', []);
-        form.setValue('giftCardUsernames', {});
-      } else if (category === 'video_games') {
+      if (category === 'video_games') {
         form.setValue('selectedConsoles', []);
         form.setValue('selectedRetroConsoles', []);
       }
     }
   };
 
-  const handleTermsScrollToBottom = () => {
-    setHasReadTerms(true);
-  };
+
 
   // Function to scroll to the first error field
   const scrollToFirstError = (errors: any) => {
@@ -746,107 +507,9 @@ export function CustomerInfoForm() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="dob"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-lg font-semibold text-slate-200 flex items-center gap-2">
-                        <span className="text-2xl">📅</span>
-                        Spawn Date (Date of Birth)
-                      </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="date" 
-                          {...field}
-                          max={format(utcToZonedTime(new Date(), BARBADOS_TIMEZONE), 'yyyy-MM-dd')}
-                          className="bg-slate-700 border-slate-600 text-white focus:border-emerald-400 focus:ring-emerald-400/20 transition-all duration-200"
-                        />
-                      </FormControl>
-                      <FormDescription className="text-slate-400">
-                        We need this to unlock the right perks for your age
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Removed DOB field */}
 
-                {isMinor && (
-                  <div className="space-y-4 p-6 border-2 border-amber-400/30 bg-amber-900/20 rounded-lg backdrop-blur-sm">
-                    <h4 className="font-semibold text-amber-300 text-lg flex items-center gap-2">
-                      <span className="text-2xl">🛡️</span>
-                      Guardian Information Required
-                    </h4>
-                    
-                    <FormField
-                      control={form.control}
-                      name="guardianFullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-200">Guardian Full Name</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Enter guardian's full name" 
-                              {...field}
-                              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-amber-400 focus:ring-amber-400/20 transition-all duration-200"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="guardianDob"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-slate-200">Guardian Date of Birth</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="date" 
-                              {...field}
-                              max={format(utcToZonedTime(new Date(), BARBADOS_TIMEZONE), 'yyyy-MM-dd')}
-                              className="bg-slate-700 border-slate-600 text-white focus:border-amber-400 focus:ring-amber-400/20 transition-all duration-200"
-                            />
-                          </FormControl>
-                          <FormDescription className="text-slate-400">
-                            Format: YYYY-MM-DD
-                          </FormDescription>
-                          {/* Guardian age validation display */}
-                          {field.value && isMinor && (
-                            <div className="flex items-center gap-2 text-xs">
-                              {(() => {
-                                try {
-                                  const guardianDate = parseISO(field.value);
-                                  const today = utcToZonedTime(new Date(), BARBADOS_TIMEZONE);
-                                  const guardianAge = differenceInYears(today, guardianDate);
-                                  const isValidGuardian = guardianAge >= 18;
-                                  
-                                  return (
-                                    <>
-                                      <span className={`flex items-center gap-1 ${isValidGuardian ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        {isValidGuardian ? '✓' : '✗'} Guardian age: {guardianAge} years old
-                                      </span>
-                                      {!isValidGuardian && (
-                                        <span className="text-red-400">
-                                          (Must be 18+ to be a legal guardian)
-                                        </span>
-                                      )}
-                                    </>
-                                  );
-                                } catch (error) {
-                                  return <span className="text-amber-400">Invalid date format</span>;
-                                }
-                              })()}
-                            </div>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
+                {/* Removed Guardian Information Required section */}
               </CardContent>
             </Card>
 
@@ -867,23 +530,9 @@ export function CustomerInfoForm() {
                   name="shopCategories"
                   render={() => (
                     <FormItem>
-                      <FormLabel className="text-lg font-semibold text-slate-200">What do you usually shop for? (Select all that apply)</FormLabel>
+                      <FormLabel className="text-lg font-semibold text-slate-200">What consoles do you own and shop for? (Console selection is optional)</FormLabel>
                       <FormControl>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex items-center space-x-3 p-4 border border-slate-600 rounded-lg hover:border-cyan-400/50 transition-all duration-200 bg-slate-700/50">
-                            <Checkbox
-                              id="gift_cards"
-                              checked={watchShopCategories.includes('gift_cards')}
-                              onCheckedChange={(checked) => 
-                                handleShopCategoryChange('gift_cards', checked as boolean)
-                              }
-                              className="border-slate-500 data-[state=checked]:bg-cyan-400 data-[state=checked]:border-cyan-400"
-                            />
-                            <label htmlFor="gift_cards" className="text-lg font-medium text-slate-200 cursor-pointer flex items-center gap-2">
-                              <span className="text-2xl">🎁</span>
-                              Gift Cards
-                            </label>
-                          </div>
                           <div className="flex items-center space-x-3 p-4 border border-slate-600 rounded-lg hover:border-cyan-400/50 transition-all duration-200 bg-slate-700/50">
                             <Checkbox
                               id="video_games"
@@ -905,98 +554,15 @@ export function CustomerInfoForm() {
                   )}
                 />
 
-                {watchShopCategories.includes('gift_cards') && (
-                  <div className="space-y-4 p-4 border border-cyan-400/30 bg-cyan-900/20 rounded-lg">
-                    <h4 className="font-semibold text-cyan-300 text-lg flex items-center gap-2">
-                      <span className="text-2xl">🎁</span>
-                      Select Gift Card Types
-                    </h4>
-                    
-                    {/* Optional usernames notice */}
-                    <div className="bg-amber-900/30 border border-amber-400/30 rounded-lg p-3">
-                      <p className="text-amber-200 text-sm flex items-center gap-2">
-                        <span className="text-lg">ℹ️</span>
-                        <strong>Note:</strong> If you don't have your username right now, you can update it later when you're ready to purchase.
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {giftCardOptions.map((option) => (
-                                                  <div key={option.id} className="space-y-3 p-3 border border-slate-600 rounded-lg bg-slate-700/50 hover:border-cyan-400/50 transition-all duration-200">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id={option.id}
-                                checked={watchSelectedGiftCards.includes(option.id)}
-                                onCheckedChange={(checked) => 
-                                  handleGiftCardChange(option.id, checked as boolean)
-                                }
-                                className="border-slate-500 data-[state=checked]:bg-cyan-400 data-[state=checked]:border-cyan-400"
-                              />
-                              <label htmlFor={option.id} className="text-slate-200 font-medium cursor-pointer">
-                                {option.name}
-                              </label>
-                            </div>
-                          
-                          {watchSelectedGiftCards.includes(option.id) && (
-                            <FormField
-                              control={form.control}
-                              name={`giftCardUsernames.${option.id}`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-sm text-slate-300">{option.usernameLabel}</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      placeholder={option.usernamePlaceholder}
-                                      value={field.value ?? ''}   // Ensure a string, not undefined
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        handleGiftCardUsernameChange(option.id, value);
-                                      }}
-                                      className={getGiftCardInputClassName(option.id, field.value ?? '')}
-                                    />
-                                  </FormControl>
-                                  <FormDescription className="text-xs text-slate-400">
-                                    {option.helperText}
-                                  </FormDescription>
-                                  {/* Email validation indicator for Amazon and Apple */}
-                                  {(option.id === 'amazon' || option.id === 'itunes') && field.value && (
-                                    <div className="flex items-center gap-2 text-xs">
-                                      {isEmailValid(field.value) ? (
-                                        <span className="text-emerald-400 flex items-center gap-1">
-                                          ✓ Valid email format
-                                        </span>
-                                      ) : (
-                                        <span className="text-red-400 flex items-center gap-1">
-                                          ✗ Please enter a valid email address
-                                        </span>
-                                        )}
-                                    </div>
-                                  )}
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Helper text when no gift cards selected */}
-                    {watchShopCategories.includes('gift_cards') && (!watchSelectedGiftCards || watchSelectedGiftCards.length === 0) && (
-                      <div className="text-amber-400 text-sm flex items-center gap-2">
-                        <span>⚠️</span>
-                        Please select at least one gift card type above
-                      </div>
-                    )}
-                    <FormMessage />
-                  </div>
-                )}
-
                 {watchShopCategories.includes('video_games') && (
                   <div className="space-y-4 p-4 border border-cyan-400/30 bg-cyan-900/20 rounded-lg">
                     <h4 className="font-semibold text-cyan-300 text-lg flex items-center gap-2">
                       <span className="text-2xl">🎮</span>
-                      Select Gaming Systems You Own
+                      Select Gaming Systems You Own (Optional)
                     </h4>
+                    <p className="text-slate-300 text-sm mb-4">
+                      Don't worry if you don't own any consoles yet - you can still submit your information and update this later!
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {consoleOptions.map((option) => (
                         <div key={option.id} className="flex items-center space-x-2 p-3 border border-slate-600 rounded-lg bg-slate-700/50 hover:border-cyan-400/50 transition-all duration-200">
@@ -1052,17 +618,7 @@ export function CustomerInfoForm() {
                       </div>
                     )}
                     
-                    {/* Helper text when no gaming systems selected */}
-                    {watchShopCategories.includes('video_games') && (() => {
-                      const selectedConsoles = form.watch('selectedConsoles') || [];
-                      const selectedRetroConsoles = form.watch('selectedRetroConsoles') || [];
-                      return selectedConsoles.length === 0 && selectedRetroConsoles.length === 0;
-                    })() && (
-                      <div className="text-amber-400 text-sm flex items-center gap-2">
-                        <span>⚠️</span>
-                        Please select at least one gaming system above
-                      </div>
-                    )}
+
                     
                     <FormMessage />
                   </div>
@@ -1091,25 +647,12 @@ export function CustomerInfoForm() {
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          disabled={!hasReadTerms}
-                          className="border-slate-500 data-[state=checked]:bg-purple-400 data-[state=checked]:border-purple-400 disabled:opacity-50"
+                          className="border-slate-500 data-[state=checked]:bg-purple-400 data-[state=checked]:border-purple-400"
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
                         <FormLabel className="text-slate-200 text-base">
-                          I agree to the{' '}
-                          <button
-                            type="button"
-                            onClick={() => setShowTerms(true)}
-                            className="text-purple-400 hover:text-purple-300 font-medium underline decoration-purple-400/50 hover:decoration-purple-300 transition-all duration-200"
-                          >
-                            Terms & Conditions
-                          </button>
-                          {!hasReadTerms && (
-                            <span className="block text-xs text-amber-400 mt-1">
-                              You must read the terms first
-                            </span>
-                          )}
+                          I consent to receive WhatsApp/Email communications. My information will remain secure and used solely by PLAY Barbados.
                         </FormLabel>
                         <FormMessage />
                       </div>
@@ -1133,7 +676,7 @@ export function CustomerInfoForm() {
           </form>
         </Form>
 
-        <TermsDialog open={showTerms} onOpenChange={setShowTerms} onScrollToBottom={handleTermsScrollToBottom} />
+
       </div>
     </div>
   );
