@@ -1,27 +1,42 @@
 # Database Setup for PLAY Barbados Form
 
-## 🗄️ Required Database Function
+## 📋 Required Database Tables
 
-The form now uses a single database function call instead of multiple table inserts. This provides better performance, atomicity, and error handling.
+You need to create these tables in your Supabase database:
 
-## 📋 Setup Steps
+### 1. `customers` Table
+```sql
+CREATE TABLE customers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT UNIQUE,
+  whatsapp_country_code TEXT NOT NULL,
+  whatsapp_number TEXT NOT NULL,
+  custom_country_code TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-### 1. Access Supabase SQL Editor
+### 2. `customer_consoles` Table
+```sql
+CREATE TABLE customer_consoles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  console_type TEXT NOT NULL,
+  is_retro BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-1. Go to your Supabase project dashboard
-2. Navigate to **SQL Editor** in the left sidebar
-3. Click **New Query**
-
-### 2. Create the Database Function
-
-Copy and paste the entire contents of `supabase_functions.sql` into the SQL editor, then click **Run**.
-
-### 3. Verify Function Creation
-
-After running the SQL, you should see:
-- `create_player_profile` function created
-- `create_player_profile_simple` function created (optional)
-- Both functions granted to authenticated users
+### 3. `customer_shopping_categories` Table
+```sql
+CREATE TABLE customer_shopping_categories (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
 ## 🔧 Function Details
 
@@ -31,17 +46,13 @@ After running the SQL, you should see:
 
 **Parameters:**
 - `p_full_name`: Customer's full name
-- `p_date_of_birth`: Date of birth
+- `p_email`: Customer's email address
 - `p_whatsapp_country_code`: WhatsApp country code
 - `p_whatsapp_number`: WhatsApp phone number
 - `p_custom_country_code`: Custom country code (if "other" selected)
-- `p_guardian_full_name`: Guardian name (for minors)
-- `p_guardian_date_of_birth`: Guardian date of birth (for minors)
-- `p_is_minor`: Whether customer is under 18
 - `p_terms_accepted`: Terms acceptance status
 - `p_terms_accepted_at`: When terms were accepted
-- `p_shop_categories`: Array of shopping categories
-- `p_gift_cards`: Array of gift card objects with `id` and `username`
+- `p_shop_categories`: Array of shopping categories (only 'video_games')
 - `p_consoles`: Array of console types
 - `p_retro_consoles`: Array of retro console types
 
