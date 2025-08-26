@@ -13,6 +13,7 @@
     "security:fix": "npm audit fix",
     "security:check": "npm audit && npm outdated",
     "build:analyze": "ANALYZE=true npm run build",
+    "vercel-build": "npm run type-check && npm run lint && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

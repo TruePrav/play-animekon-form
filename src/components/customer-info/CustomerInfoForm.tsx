@@ -45,7 +45,7 @@ function SuccessPage({ onReset }: { onReset: () => void }) {
               </p>
               <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 mb-6">
                 <p className="text-slate-300 text-sm">
-                  We'll use your WhatsApp number to send you updates about gaming loot and special offers!
+                  We&apos;ll use your WhatsApp number to send you updates about gaming loot and special offers!
                 </p>
               </div>
               <div className="space-y-4">
@@ -224,7 +224,7 @@ export function CustomerInfoForm() {
 
 
   // Function to scroll to the first error field
-  const scrollToFirstError = (errors: any) => {
+  const scrollToFirstError = (errors: Record<string, unknown>) => {
     // Wait for next tick to ensure DOM is updated
     setTimeout(() => {
       const firstErrorField = Object.keys(errors)[0];
@@ -500,7 +500,7 @@ export function CustomerInfoForm() {
                         </div>
                       </FormControl>
                       <FormDescription className="text-slate-400">
-                        We'll use this to send you updates about your gaming loot
+                        We&apos;ll use this to send you updates about your gaming loot
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -561,7 +561,7 @@ export function CustomerInfoForm() {
                       Select Gaming Systems You Own (Optional)
                     </h4>
                     <p className="text-slate-300 text-sm mb-4">
-                      Don't worry if you don't own any consoles yet - you can still submit your information and update this later!
+                      Don&apos;t worry if you don&apos;t own any consoles yet - you can still submit your information and update this later!
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {consoleOptions.map((option) => (

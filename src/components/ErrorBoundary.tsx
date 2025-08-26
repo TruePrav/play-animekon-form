@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </CardHeader>
             <CardContent className="text-center space-y-4">
               <p className="text-slate-400 text-sm">
-                We've been notified of this error and are working to fix it.
+                We&apos;ve been notified of this error and are working to fix it.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-3 justify-center">

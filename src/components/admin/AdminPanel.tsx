@@ -322,7 +322,7 @@ export default function AdminPanel() {
     downloadCSV(csv, filename);
   };
 
-  const convertToCSV = (data: any[]) => {
+  const convertToCSV = (data: Record<string, unknown>[]) => {
     const headers = Object.keys(data[0]);
     const csvRows = [headers.join(',')];
     

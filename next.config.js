@@ -21,6 +21,8 @@ const nextConfig = {
   compress: true,
   // Security: Disable powered by header
   poweredByHeader: false,
+  // Vercel deployment configuration
+  output: 'standalone',
 }
 
 module.exports = nextConfig

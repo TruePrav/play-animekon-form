@@ -97,8 +97,8 @@ export function TermsDialog({ open, onOpenChange, onScrollToBottom }: TermsDialo
               <div>
                 <h5 className="font-medium text-purple-200 mb-2">Vendor Terms</h5>
                 <div className="ml-2 space-y-2">
-                  <p>Digital Goods are issued by third-party Vendors. Your use of these products is also subject to the Vendor's own terms and conditions, including any expiration dates or use restrictions.</p>
-                  <p>You are responsible for reviewing the Vendor's terms before purchase or use.</p>
+                  <p>Digital Goods are issued by third-party Vendors. Your use of these products is also subject to the Vendor&apos;s own terms and conditions, including any expiration dates or use restrictions.</p>
+                  <p>You are responsible for reviewing the Vendor&apos;s terms before purchase or use.</p>
                 </div>
               </div>
               
@@ -196,14 +196,14 @@ export function TermsDialog({ open, onOpenChange, onScrollToBottom }: TermsDialo
           <section>
             <h4 className="font-semibold text-purple-300 mb-2">4. Use License</h4>
             <p className="mb-3">
-              Permission is granted to temporarily download one copy of materials (information or software) on PLAY Barbados's website for personal, non-commercial, transitory viewing only.
+              Permission is granted to temporarily download one copy of materials (information or software) on PLAY Barbados&apos;s website for personal, non-commercial, transitory viewing only.
             </p>
           </section>
 
           <section>
             <h4 className="font-semibold text-purple-300 mb-2">5. Disclaimer</h4>
             <p className="mb-3">
-              Materials on PLAY Barbados's website are provided on an "as is" basis. PLAY Barbados makes no warranties, expressed or implied, and disclaims all other warranties, including implied warranties of merchantability, fitness for a particular purpose, or non-infringement.
+              Materials on PLAY Barbados&apos;s website are provided on an &quot;as is&quot; basis. PLAY Barbados makes no warranties, expressed or implied, and disclaims all other warranties, including implied warranties of merchantability, fitness for a particular purpose, or non-infringement.
             </p>
           </section>
 

@@ -56,6 +56,7 @@ npm run dev
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run vercel-build` - Build for Vercel deployment (includes type checking and linting)
 
 ## Project Structure
 
@@ -77,6 +78,18 @@ src/
 └── lib/
     └── utils.ts              # Utility functions
 ```
+
+## Deployment
+
+### Vercel Deployment
+This application is configured for easy deployment on Vercel:
+
+1. **Automatic Deployment**: Connect your GitHub repository to Vercel for automatic deployments
+2. **Build Configuration**: Uses `vercel.json` with Next.js framework detection
+3. **Environment Variables**: Configure Supabase credentials in Vercel project settings
+4. **Build Process**: Runs type checking, linting, and build in sequence
+
+For detailed deployment instructions, see [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md).
 
 ## Form Features
 
