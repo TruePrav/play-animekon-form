@@ -1,6 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+
+let supabaseClient: SupabaseClient | null = null
 
 export function getSupabaseClient() {
+  if (supabaseClient) {
+    return supabaseClient
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -8,24 +14,9 @@ export function getSupabaseClient() {
     throw new Error('Missing Supabase environment variables. Please check your .env.local file.')
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey)
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+  return supabaseClient
 }
 
-// Export a proxy object that creates the client when needed
-export const supabase = new Proxy({} as any, {
-  get(target, prop) {
-    if (prop === 'rpc') {
-      return (...args: any[]) => getSupabaseClient().rpc(...args)
-    }
-    if (prop === 'from') {
-      return (...args: any[]) => getSupabaseClient().from(...args)
-    }
-    if (prop === 'auth') {
-      return getSupabaseClient().auth
-    }
-    if (prop === 'storage') {
-      return getSupabaseClient().storage
-    }
-    return getSupabaseClient()[prop]
-  }
-})
+// Export the client directly - it will be created when first accessed
+export const supabase = getSupabaseClient()

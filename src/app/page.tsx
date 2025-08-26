@@ -9,7 +9,7 @@ export default function HomePage() {
           <h1 className="text-6xl font-bold text-gray-900 mb-4">PLAY Barbados</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Your premier destination for gaming and entertainment in Barbados. 
-            From gift cards to video games, we've got everything you need for the ultimate gaming experience.
+            From gift cards to video games, we&apos;ve got everything you need for the ultimate gaming experience.
           </p>
         </div>
         
