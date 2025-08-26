@@ -1,0 +1,26 @@
+{
+  "name": "PLAY Barbados",
+  "short_name": "PLAY",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "description": "PLAY Barbados - Your ultimate gaming destination for gift cards, consoles, and gaming accessories",
+  "icons": [
+    {
+      "src": "/play-black.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/play-black.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "shopping", "entertainment"],
+  "lang": "en",
+  "orientation": "portrait-primary"
+}
