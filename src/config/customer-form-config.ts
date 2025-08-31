@@ -133,6 +133,10 @@ export const consoleOptions: ConsoleOption[] = [
     name: 'PC'
   },
   {
+    id: 'mobile',
+    name: 'Mobile'
+  },
+  {
     id: 'retro',
     name: 'Retro'
   }

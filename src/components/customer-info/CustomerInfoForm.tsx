@@ -143,6 +143,21 @@ export function CustomerInfoForm() {
     });
     
     try {
+      // Check if phone number already exists
+      const { data: phoneExists, error: phoneCheckError } = await supabase.rpc('check_phone_exists', {
+        p_country_code: data.whatsappCountryCode,
+        p_phone_number: data.whatsappNumber
+      });
+
+      if (phoneCheckError) {
+        logger.error('Phone number check error:', phoneCheckError);
+        throw new Error('Unable to verify phone number. Please try again.');
+      }
+
+      if (phoneExists) {
+        throw new Error('A user with this phone number already exists. Please use a different number or contact support if you need help.');
+      }
+
       // Single database function call to create player profile
       const { data: newId, error } = await supabase.rpc('create_player_profile', {
         p_full_name: data.fullName,
@@ -183,8 +198,8 @@ export function CustomerInfoForm() {
           // Handle specific database constraint errors
           if (message.includes('customers_email_unique')) {
             errorMessage = 'An account with this email address already exists. Please use a different email or contact support if you need help.';
-          } else if (message.includes('duplicate key value violates unique constraint')) {
-            errorMessage = 'This information appears to already exist in our system. Please check your details or contact support for assistance.';
+          } else if (message.includes('customers_phone_unique') || message.includes('duplicate key value violates unique constraint')) {
+            errorMessage = 'A user with this phone number already exists. Please use a different number or contact support if you need help.';
           } else if (message.includes('not-null constraint')) {
             errorMessage = 'Some required information is missing. Please check all required fields and try again.';
           } else if (message.includes('foreign key constraint')) {

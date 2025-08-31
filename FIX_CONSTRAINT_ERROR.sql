@@ -1,27 +1,92 @@
--- Fix for existing constraint error
--- Run this if you get "relation unique_customer_wheel_spin already exists"
+-- Fix Duplicate Phone Numbers Before Adding Unique Constraint
+-- Run this in your Supabase SQL editor BEFORE running ADD_MOBILE_AND_PHONE_CONSTRAINT.sql
 
--- Drop the existing constraint if it exists
-DO $$ 
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.table_constraints 
-        WHERE constraint_name = 'unique_customer_wheel_spin'
-        AND table_name = 'customer_wheel_spins'
-    ) THEN
-        ALTER TABLE customer_wheel_spins DROP CONSTRAINT unique_customer_wheel_spin;
-        RAISE NOTICE 'Dropped existing constraint unique_customer_wheel_spin';
-    ELSE
-        RAISE NOTICE 'Constraint unique_customer_wheel_spin does not exist';
-    END IF;
-END $$;
+-- 1. First, let's identify all duplicate phone number combinations
+SELECT 
+    whatsapp_country_code,
+    whatsapp_number,
+    COUNT(*) as duplicate_count,
+    array_agg(id) as customer_ids,
+    array_agg(full_name) as customer_names
+FROM customers 
+GROUP BY whatsapp_country_code, whatsapp_number
+HAVING COUNT(*) > 1
+ORDER BY duplicate_count DESC;
 
--- Now add the constraint back
-ALTER TABLE customer_wheel_spins 
-ADD CONSTRAINT unique_customer_wheel_spin 
-UNIQUE (customer_id);
+-- 2. Show detailed information about customers with duplicate phone numbers
+WITH duplicates AS (
+    SELECT 
+        whatsapp_country_code,
+        whatsapp_number,
+        COUNT(*) as duplicate_count
+    FROM customers 
+    GROUP BY whatsapp_country_code, whatsapp_number
+    HAVING COUNT(*) > 1
+)
+SELECT 
+    c.id,
+    c.full_name,
+    c.email,
+    c.whatsapp_country_code,
+    c.whatsapp_number,
+    c.created_at
+FROM customers c
+INNER JOIN duplicates d 
+    ON c.whatsapp_country_code = d.whatsapp_country_code 
+    AND c.whatsapp_number = d.whatsapp_number
+ORDER BY c.whatsapp_country_code, c.whatsapp_number, c.created_at;
 
--- Verify the constraint was added
-SELECT constraint_name, table_name 
-FROM information_schema.table_constraints 
-WHERE constraint_name = 'unique_customer_wheel_spin';
+-- 3. OPTION 1: Keep the most recent entry and delete older duplicates
+-- Uncomment and modify this section if you want to automatically remove duplicates
+/*
+WITH duplicates_to_remove AS (
+    SELECT id
+    FROM (
+        SELECT 
+            id,
+            ROW_NUMBER() OVER (
+                PARTITION BY whatsapp_country_code, whatsapp_number 
+                ORDER BY created_at DESC
+            ) as rn
+        FROM customers
+    ) ranked
+    WHERE rn > 1
+)
+DELETE FROM customers WHERE id IN (SELECT id FROM duplicates_to_remove);
+*/
+
+-- 4. OPTION 2: Manual cleanup - Update duplicate phone numbers to make them unique
+-- Uncomment and modify these lines for specific duplicates you want to fix
+/*
+-- Example: Update a specific duplicate phone number
+-- UPDATE customers 
+-- SET whatsapp_number = whatsapp_number || '-duplicate-' || id::text
+-- WHERE id = 'specific-uuid-here';
+
+-- Example: Update all duplicates to add a suffix
+-- UPDATE customers 
+-- SET whatsapp_number = whatsapp_number || '-duplicate-' || id::text
+-- WHERE id IN (
+--     SELECT c.id
+--     FROM customers c
+--     INNER JOIN (
+--         SELECT whatsapp_country_code, whatsapp_number
+--         FROM customers 
+--         GROUP BY whatsapp_country_code, whatsapp_number
+--         HAVING COUNT(*) > 1
+--     ) d ON c.whatsapp_country_code = d.whatsapp_country_code 
+--         AND c.whatsapp_number = d.whatsapp_number
+-- );
+*/
+
+-- 5. Verify no duplicates remain (should return 0 rows)
+SELECT 
+    whatsapp_country_code,
+    whatsapp_number,
+    COUNT(*) as duplicate_count
+FROM customers 
+GROUP BY whatsapp_country_code, whatsapp_number
+HAVING COUNT(*) > 1;
+
+-- 6. After running the fixes above, you can now run ADD_MOBILE_AND_PHONE_CONSTRAINT.sql
+-- The unique constraint should be added successfully
